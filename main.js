@@ -125,6 +125,10 @@ client.on('messageCreate', async (message) => {
                 {name : "%profile", value : "Commande = %profile. Permet d'afficher le profile de l'utilisateur mentionné"},
                 {name : "%ban", value : "Commande = %ban. Permet de bannir des membres, cette commande ne peux que être utilisée par certain rôles"},
                 {name : "%kick", value : "Commande = %kick. Permet d'expulser des membres, cette commande ne peux que être utilisée par certain rôles"},
+                {name : "%thread", value : "Commande = %thread. Permet de créer un thread"},
+                {name : "%say", value : "Commande = %say. Commande réservée aux Admin, elle permet d'evoyer un message sur les tous les serveurs dont le bot fait parti."},
+                {name : "%mute", value : "Commande = %mute. Commande réservée aux modérateurs, super modérateurs et Admins, elle permet de mute un membre"},
+                {name : "%unmute", value : "Commande = %mute. Commande réservée aux modérateurs, super modérateurs et Admins, elle permet de demute des membres mutes."},
             )
             .setTimestamp()
         message.channel.send({embeds : [help_embed]});
@@ -134,6 +138,11 @@ client.on('messageCreate', async (message) => {
         console.log(`La commande %ban a été détectée, l'auteur est ${message.author.username}`)
 
         const memberToBan = message.mentions.members.first();
+
+        if (memberToBan == client){
+            message.reply("Vous ne pouvez pas ban le bot")
+            return;
+        }
 
         if (!memberToBan) {
             message.channel.send("Vous devez mentionnez le membre a bannir");
@@ -162,6 +171,11 @@ client.on('messageCreate', async (message) => {
 
         const memberToKick = message.mentions.members.first()
 
+        if (memberToKick == client){
+            message.reply("Vous ne pouvez pas expulser le bot");
+            return;
+        }
+
         if (!memberToKick){
             message.channel.send("Vous devez mentionnez le membre a expulser")
             return;
@@ -182,6 +196,126 @@ client.on('messageCreate', async (message) => {
                 message.reply(`Un problème est survenu lors de l'expulsion de ${kickedMember.user.username}`)
             })
     }
+
+    if (message.content.startsWith("%thread")){
+        console.log(`La commande %thread a été détectée, l'auteur est ${message.author.username}`)
+        name_thread = `* Thread de ${message.author.username}`
+
+        message.channel.send(name_thread)
+        message.startThread({
+            name : `Thread de ${message.author.username}`,
+            autoArchiveDuration: 60,
+            type: 'GUILD_PUBLIC_THREAD'
+        })
+
+
+    }
+
+    if (message.content.startsWith("%say")) {
+        console.log(`Commande %say détectée, l'auteur est ${message.author.username}`);
+    
+        if (!message.member.permissions.has("ADMINISTRATOR")) {
+            message.channel.send("Vous n'avez pas la permission d'utiliser cette commande");
+            return;
+        }
+    
+        const guildsArray = Array.from(client.guilds.cache.values());
+        const messageContent = message.content.substring(5);
+    
+        for (const server of guildsArray) {
+            try {
+                const defaultChannel = server.systemChannel || server.channels.cache.first();
+                if (defaultChannel) {
+                    defaultChannel.send(`${message.author.username} envoie : ${messageContent}`);
+                }
+            } catch (error) {
+                console.error(`Impossible d'envoyer le message à ${server.name}`);
+            }
+        }
+    }
+
+    if (message.content.startsWith(`<@1149974000613732412>`)){
+        console.log(`Mention détecter, ${message.author}`)
+
+        const mention_embeds = new EmbedBuilder()
+            .setColor('#0099ff')
+            .setTitle("Aide")
+            .addFields(
+                {name : "Besion d'aide ?", value : "====="},
+                {name : "Utilise la commande %help pour devenir un pro de skyz bot !", value : "====="},
+            )
+        message.channel.send({embeds : [mention_embeds]})
+    }
+
+    if (message.content.startsWith("%mute")) {
+        console.log(`Command %mute détectée, l'auteur est ${message.author}`);
+    
+        if (!message.member.permissions.has("MuteMembers")) {
+            message.reply("Vous n'avez pas la permission de mute des membres");
+            return;
+        }
+    
+        if (message.mentions.members.size === 0) {
+            message.reply("Vous devez mentionner un membre");
+            return;
+        }
+    
+        const memberToMute = message.mentions.members.first();
+
+        if (memberToMute == client){
+            message.reply("Vous ne pouvez pas mute le bot")
+            return;
+        }
+    
+        memberToMute.roles.add("1136228636761018448")
+            .then(() => {
+                message.reply(`Vous avez mute ${memberToMute.user.tag}`);
+            })
+            .catch(error => {
+                console.error(`Une erreur s'est produite lors de la tentative de mute : ${error}`);
+                message.reply("Une erreur s'est produite lors de la tentative de mute du membre.");
+            });
+        
+            const roleToRemove = message.guild.roles.cache.find(role => role.id === "1097238913778716743");
+            if (!roleToRemove) {
+                message.reply("Le rôle à retirer n'a pas été trouvé.");
+                return;
+            }
+    }
+
+    if (message.content.startsWith("%unmute")) {
+        console.log(`Commande %unmute détectée, l'auteur est ${message.author.username}`);
+    
+        if (!message.member.permissions.has("MuteMembers")) {
+            message.reply("Vous n'avez pas la permission de unmute des membres");
+            return;
+        }
+    
+        if (message.mentions.members.size === 0) {
+            message.reply("Vous devez mentionner un membre à unmute");
+            return;
+        }
+    
+        const memberToUnmute = message.mentions.members.first();
+    
+        const roleToRemove = message.guild.roles.cache.find(role => role.id === "1136228636761018448");
+        if (!roleToRemove) {
+            message.reply("Le rôle à retirer n'a pas été trouvé.");
+            return;
+        }
+    
+        memberToUnmute.roles.remove(roleToRemove)
+            .then(() => {
+                message.reply(`Vous avez unmute ${memberToUnmute.user.tag}`);
+                memberToUnmute.roles.add("1097238913778716743")
+
+            })
+            .catch(error => {
+                console.error(`Une erreur s'est produite lors de la tentative d'unmute : ${error}`);
+                message.reply(`Une erreur s'est produite lors de la tentative d'unmute du membre.`);
+            });
+    }
+    
 });
 
 client.login("YOUR TOKEN")
