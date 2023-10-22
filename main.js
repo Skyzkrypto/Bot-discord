@@ -12,12 +12,28 @@ const client = new Client({
 client.on("ready", () => {
     console.log(`${client.user.tag} est démarré`);
 
+    client.user.setPresence({
+        activities: {
+            name : "Besion d'aide ? => %help",
+            type : "WATCHING",
+        },
+        status : "online"
+    })
 });
 
-prefix = "%"
+const prefix = "%"
+const warnings = {};
 
 client.on('messageCreate', async (message) => {
     const userID = message.author.id;
+    const members_serveur = message.channel.guild.members.cache;
+
+    if (message.content.startsWith(prefix)) {
+        const args = message.content.slice(prefix.length).split(/ +/);
+        const command = args.shift().toLowerCase();
+    }
+
+
     if (!message.author.bot) {
         console.log(`${message.author.username} avec l'ID ${userID} a envoyé un message : "${message.content}"`);
     }
@@ -62,8 +78,13 @@ client.on('messageCreate', async (message) => {
         if (targetUser) {
             if (targetUser.avatar) {
                 const avatarURL = targetUser.displayAvatarURL({ format: "png", dynamic: true, size: 1024 });
-                console.log(`La photo de profil de ${targetUser.tag} est ${avatarURL}`)
-                message.channel.send(`La photo de profil de ${targetUser.tag} est ${avatarURL}`)
+                
+                embed_avatar = new EmbedBuilder()
+                    .setColor('#0099ff')
+                    .setImage(avatarURL)
+                    .setTitle(`Avatar de ${targetUser.username}`)
+    
+                message.channel.send({embeds: [embed_avatar]});
             } else {
                 console.log(`${targetUser.tag} n'a pas de photo de profil`)
                 message.channel.send(`${targetUser.tag} n'a pas de photo de profil`)
@@ -92,11 +113,11 @@ client.on('messageCreate', async (message) => {
             .setTitle (`Profil de ${targetUser.username}`)
             .setDescription(`Voici le profil de ${targetUser.tag}`)
             .addFields(
-                { name: '\u200b', value: '\u200b' },
+                {name: '\u200b', value: '\u200b' },
                 {name : "Nom d'utilisateur", value : `Le nom d'utilisateur est ${targetUser.username}`},
-                { name: '\u200b', value: '\u200b' },
+                {name: '\u200b', value: '\u200b' },
                 {name : "Tag d'utilisateur", value : `Le tag d'utilisateur est ${targetUser.tag}`},
-                { name: '\u200b', value: '\u200b' },
+                {name: '\u200b', value: '\u200b' },
                 {name : "L'id de l'utilisateur", value : `L'id d'utilisateur est ${targetUser.id}`}
             )
       
@@ -113,9 +134,9 @@ client.on('messageCreate', async (message) => {
         const help_embed = new EmbedBuilder()
             .setColor(0x0099FF)
             .setTitle("Commandes")
-            .setDescription("Affiche toutes les commandes possible avec skyz bot")
+            .setDescription("Affiche toutes les commandes possibles avec skyz bot")
             .addFields(
-                { name: '\u200b', value: '\u200b' },
+                {name: '\u200b', value: '\u200b' },
                 {name : "%help", value : "Commande = %help. Permet d'afficher toutes les commandes"},
                 {name : "%read", value : "Commande = %read. Permet d'envoyer du texte anonymement"},
                 {name : "%id", value : "Commande = %id. Permet de récuperer votre ou l'id d'un autre utilisateur"},
@@ -127,8 +148,10 @@ client.on('messageCreate', async (message) => {
                 {name : "%kick", value : "Commande = %kick. Permet d'expulser des membres, cette commande ne peux que être utilisée par certain rôles"},
                 {name : "%thread", value : "Commande = %thread. Permet de créer un thread"},
                 {name : "%say", value : "Commande = %say. Commande réservée aux Admin, elle permet d'evoyer un message sur les tous les serveurs dont le bot fait parti."},
-                {name : "%mute", value : "Commande = %mute. Commande réservée aux modérateurs, super modérateurs et Admins, elle permet de mute un membre"},
+                {name : "%mute", value : "Commande = %mute. Commande réservée aux modérateurs, super modérateurs et Admins, elle permet de mute un membre. Attention cette commande ne fonctionne que sur un serveur"},
                 {name : "%unmute", value : "Commande = %mute. Commande réservée aux modérateurs, super modérateurs et Admins, elle permet de demute des membres mutes."},
+                {name : "%warn", value:"Commande = %warn. Commande réservée aux modérateurs, super modérateurs et Admins, permet de warn un utilisateur"},
+                {name : "%checkWarnings", value:"Commande = %checkWarnings. Commande réservée aux modérateurs, super modérateurs et Admins, permet de vérifier les warns d'un utilisateur"}
             )
             .setTimestamp()
         message.channel.send({embeds : [help_embed]});
@@ -227,6 +250,7 @@ client.on('messageCreate', async (message) => {
                 const defaultChannel = server.systemChannel || server.channels.cache.first();
                 if (defaultChannel) {
                     defaultChannel.send(`${message.author.username} envoie : ${messageContent}`);
+                    message.delete()
                 }
             } catch (error) {
                 console.error(`Impossible d'envoyer le message à ${server.name}`);
@@ -315,7 +339,60 @@ client.on('messageCreate', async (message) => {
                 message.reply(`Une erreur s'est produite lors de la tentative d'unmute du membre.`);
             });
     }
+    if (message.content.startsWith("%warn")) {
+        console.log(`Commande warn détectée, l'auteur est ${message.author.username}`);
+    
+        if (!message.member.permissions.has("MuteMembers")) {
+            message.reply("Vous n'avez pas la permission de warn des membres");
+            return;
+        }
+        if (message.mentions.members.size === 0) {
+            message.reply("Vous devez mentionner un membre à warn");
+            return;
+        }
+        const memberToWarn = message.mentions.members.first();
+        const reason = message.content.slice("%warn".length).trim();
+    
+        if (!warnings[memberToWarn.id]) {
+            warnings[memberToWarn.id] = [];
+        }
+    
+        warnings[memberToWarn.id].push(reason);
+    
+        console.log(`Vous avez warn ${memberToWarn.user.username} pour la raison : ${reason}`);
+        message.reply(`Vous avez warn ${memberToWarn.user.username} pour la raison : ${reason}`);
+    
+        memberToWarn.send(`Vous avez été averti sur le serveur "${message.guild.name}" pour la raison : ${reason}`);
+    
+    }
+    if (message.content.startsWith("%checkWarnings")) {
+        console.log(`Commande warnings détectée, l'auteur est ${message.author.username}`);
+    
+        if (!message.member.permissions.has("MuteMembers")) {
+            message.reply("Vous n'avez pas la permission de voir les avertissements des membres");
+            return;
+        }
+        if (message.mentions.members.size === 0) {
+            message.reply("Vous devez mentionner un membre pour voir ses avertissements");
+            return;
+        }
+        const memberToCheck = message.mentions.members.first();
+    
+        const userWarnings = warnings[memberToCheck.id] || [];
+    
+        if (userWarnings.length === 0) {
+            message.channel.send(`${memberToCheck.user.username} n'a pas d'avertissements.`);
+        } else {
+            message.channel.send(`${memberToCheck.user.username} a les avertissements suivants :`);
+            userWarnings.forEach((warning, index) => {
+                message.channel.send(`Avertissement ${index + 1}: ${warning}`);
+            });
+        }
+    }
     
 });
 
 client.login("YOUR TOKEN")
+    .catch(error => {
+        console.error(`Erreur lors de la connexion du bot : ${error}`);
+    });
